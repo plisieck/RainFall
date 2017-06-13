@@ -1,0 +1,22 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+int n(void)
+{
+    return(system("/bin/cat /home/user/level7/.pass"));
+}
+
+int m(void) {
+    return(puts("Nope"));
+}
+
+int main(int argc, char ** argv) {
+    char *str = malloc(64);
+    char * addr = malloc(4);
+    *(unsigned int *)addr = 0x8048468;
+    strcpy(str, argv[1]);
+    unsigned int result = *(unsigned int *)addr;
+    ((unsigned int (*)())result)();
+    return result;
+}

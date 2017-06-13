@@ -1,0 +1,67 @@
+
+██████╗  ██████╗ ███╗   ██╗██╗   ██╗███████╗    ██████╗ 
+██╔══██╗██╔═══██╗████╗  ██║██║   ██║██╔════╝    ╚════██╗
+██████╔╝██║   ██║██╔██╗ ██║██║   ██║███████╗     █████╔╝
+██╔══██╗██║   ██║██║╚██╗██║██║   ██║╚════██║     ╚═══██╗
+██████╔╝╚██████╔╝██║ ╚████║╚██████╔╝███████║    ██████╔╝
+╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝    ╚═════╝ 
+
+
+gdb bonus3
+
+disas main
+
+<+262>: call   0x8048420 <execl@plt>
+strings bonus3
+-> /bin/sh
+
+He's executing a shell.
+
+0x08048513 <+31>:  call   0x8048410 <fopen@plt>
+It make a fopen, let's see what he is opening:
+
+// Breakpoint at fopen
+b *main+31
+
+run
+
+x/x $esp
+-> 0x080486f2
+
+x/s 0x080486f2
+-> "/home/user/end/.pass"
+
+We have no rights on this file.
+So the SCP the binary and change the file opened by a file on which we have rihgts.
+
+
+<+100>:   mov    %edx,0xc(%esp)
+<+104>:   movl   $0x42,0x8(%esp)
+<+112>:   movl   $0x1,0x4(%esp)
+<+120>:   mov    %eax,(%esp)
+<+123>:  call   0x80483d0 <fread@plt>
+// Get the content of the file and store it in a variable.
+
+<+73>: cmpl   $0x2,0x8(%ebp)
+// The program take an argument (argc must equal to 2)
+
+<+144>:   call   0x8048430 <atoi@plt>
+<+149>:   movb   $0x0,0x18(%esp,%eax,1)
+Perform an <atoi> on this argument, which is now an index.
+Place a '\0' on our string (the one that contain the flag) at this index.
+
+<+191>:  call   0x80483d0 <fread@plt>
+Get this new string (with '\0') and store it.
+
+<+230>:  call   0x80483b0 <strcmp@plt>
+Compare the argument passed to the program with te string obtained.
+
+If we send him an empty string, the atoi will return 0 and place a '\0' at str[0].
+Then it will compare this empty string with our argument (which is also an empty string).
+
+./bonus3 ""
+
+|══════════════════════════════════════════════════════════════════|
+| 3321b6f81659f9a71c76616f606e4b50189cecfea611393d5d649f75e157353c |
+|══════════════════════════════════════════════════════════════════|
+

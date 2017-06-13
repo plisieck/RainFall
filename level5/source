@@ -1,0 +1,15 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+void n(void) {
+    char *str;
+    fgets(str, 512, stdin);
+    printf(str);
+    exit(1);
+}
+
+int main(int argc, char ** argv)
+{
+    n();
+    return 0;
+}

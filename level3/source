@@ -1,0 +1,21 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int v(void) 
+{
+		char	*str;
+		fgets(str, 512, stdin);
+		printf(str);
+		int myVar = 0;
+		if (myVar == 64) {
+				fwrite("Wait what?!\n", 1, 12, stdout);
+				system("/bin/sh");
+		}
+		return 0;
+}
+
+int main(int argc, char ** argv) 
+{
+		return v();
+}

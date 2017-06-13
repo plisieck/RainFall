@@ -1,0 +1,25 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+int p(char * format)
+{
+    return printf(format);
+}
+
+int n(void)
+{
+    int var = 0;
+    char *str;
+    
+    fgets(str, 512, stdin);
+    p(str);
+    if (var == 0x1025544)
+        system("/bin/cat /home/user/level5/.pass");
+    return 0;
+}
+
+int main(int argc, char ** argv)
+{
+    return n();
+}

